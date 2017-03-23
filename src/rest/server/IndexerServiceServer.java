@@ -6,6 +6,7 @@
 package rest.server;
 
 import api.Endpoint;
+import java.net.InetAddress;
 import java.net.URI;
 import java.util.Collections;
 import javax.ws.rs.client.Client;
@@ -26,20 +27,21 @@ import org.glassfish.jersey.server.ResourceConfig;
 public class IndexerServiceServer {
 
     public static void main(String[] args) throws Exception {
-        int port = 8081;
+        int port = 8080;
         if (args.length > 0) {
             port = Integer.parseInt(args[0]);
         }
-
-        URI baseUri = UriBuilder.fromUri("http://0.0.0.0/").port(port).build();
+        String url = "http://" + InetAddress.getLocalHost().getHostAddress() + "/";
+        System.err.println(url);
+        URI baseUri = UriBuilder.fromUri(url).port(port).build();
 
         ResourceConfig config = new ResourceConfig();
         config.register(new RendezVousResources());
 
         JdkHttpServerFactory.createHttpServer(baseUri, config);
 
-        System.err.println("REST IndexerService Server ready @ " + baseUri);
-
+        System.err.println("REST IndexerService Server ready @ " + baseUri+ " : local IP = " + InetAddress.getLocalHost().getHostAddress());
+        System.err.println(baseUri.toString());
         registerRendezVous(baseUri.toString());
     }
 
@@ -47,13 +49,13 @@ public class IndexerServiceServer {
         ClientConfig config = new ClientConfig();
         Client client = ClientBuilder.newClient(config);
 
-        URI baseURI = UriBuilder.fromUri("http://localhost:8080/").build();
+        URI baseURI = UriBuilder.fromUri("http://172.17.0.2:8080/").build();
 
         WebTarget target = client.target(baseURI);
         
         Endpoint endpoint = new Endpoint(url, Collections.emptyMap());
         
-        Response response = target.path("/rendezvous/" + endpoint.generateId())
+        Response response = target.path("/contacts/" + endpoint.generateId())
                 .request()
                 .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
 
