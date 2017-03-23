@@ -22,23 +22,19 @@ import static javax.ws.rs.core.Response.Status.*;
 /**
  * Implementacao do servidor de rendezvous em REST 
  */
-@Path("/rendezvous")
+
 public class RendezVousResources implements RendezVousAPI{
 
 	private Map<String, Endpoint> db = new ConcurrentHashMap<>();
-
-	@GET
-	@Produces(MediaType.APPLICATION_JSON)
+        
         @Override
 	public Endpoint[] endpoints() {
 		return db.values().toArray( new Endpoint[ db.size() ]);
 	}
 
-	@POST
-	@Path("/{id}")
-	@Consumes(MediaType.APPLICATION_JSON)
+	
         @Override
-	public void register( @PathParam("id") String id, Endpoint endpoint) {
+	public void register( String id, Endpoint endpoint) {
 		System.err.printf("register: %s <%s>\n", id, endpoint);
 		
 		if (db.containsKey(id))
@@ -47,9 +43,7 @@ public class RendezVousResources implements RendezVousAPI{
 			db.put(id, endpoint);		
 	}
 
-	@PUT
-	@Path("/{id}")
-	@Consumes(MediaType.APPLICATION_JSON)
+	
         @Override
 	public void update(@PathParam("id") String id, Endpoint endpoint) {
 		System.err.printf("update: %s <%s>\n", id, endpoint);
@@ -60,8 +54,7 @@ public class RendezVousResources implements RendezVousAPI{
 			db.put(id, endpoint);		
 	}
 
-        @DELETE
-        @Path ("/{id}")
+        
         @Override
 	public void unregister(@PathParam("id") String id) {
 		System.err.printf("deleting: %s\n", id);
