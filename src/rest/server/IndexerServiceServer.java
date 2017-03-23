@@ -29,75 +29,83 @@ import org.glassfish.jersey.server.ResourceConfig;
  */
 public class IndexerServiceServer {
 
-    private static String hostname;
-    private static int port;
+    private static final String MESSAGE = "RendezVousServer";
+    private static final int TIMEOUT = 1000;
 
-    private static String message = "RendezVousServer";
-    private static int TIMEOUT = 1000;
+    private static URI baseUri;
 
     public static void main(String[] args) throws Exception {
-        port = 8080;
+        int port = 8080;
         if (args.length > 0) {
             port = Integer.parseInt(args[0]);
         }
-        hostname = "http://" + InetAddress.getLocalHost().getHostAddress();
 
-        URI baseUri = UriBuilder.fromUri(hostname + "/").port(port).build();
+        //Set up server
+        String hostAddress = InetAddress.getLocalHost().getHostAddress();
+        baseUri = UriBuilder.fromUri("http://" + hostAddress + "/").port(port).build();
 
         ResourceConfig config = new ResourceConfig();
         config.register(new RendezVousResources());
-
         JdkHttpServerFactory.createHttpServer(baseUri, config);
 
-        System.err.println("REST IndexerService Server ready @ " + baseUri + " : local IP = " + InetAddress.getLocalHost().getHostAddress());
+        System.err.println("REST IndexerService Server ready @ " + baseUri);
+        //
 
+        //Discovering RendezVousServer
+        //Setting up multicast request.
         final int portMulti = 6969;
-        final InetAddress address = InetAddress.getByName("238.69.69.69");
-        if (!address.isMulticastAddress()) {
+        final InetAddress multiAddress = InetAddress.getByName("238.69.69.69");
+        if (!multiAddress.isMulticastAddress()) {
             System.out.println("Use range : 224.0.0.0 -- 239.255.255.255");
         }
 
         MulticastSocket socket = new MulticastSocket();
 
-        byte[] input = (message).getBytes();
-        DatagramPacket packet = new DatagramPacket(input, input.length);
-        packet.setAddress(address);
-        packet.setPort(portMulti);
-        socket.send(packet);
+        //Send multicast request with MESSAGE - Send up to three times
+        for (int retry = 0; retry < 3; retry++) {
+            byte[] input = (MESSAGE).getBytes();
+            DatagramPacket packet = new DatagramPacket(input, input.length);
 
-        byte[] buffer = new byte[65536];
-        DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
-        socket.setSoTimeout(TIMEOUT);
+            packet.setAddress(multiAddress);
+            packet.setPort(portMulti);
 
-        while (true) {
+            socket.send(packet);
+
+            byte[] buffer = new byte[65536];
+            DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
+            socket.setSoTimeout(TIMEOUT);
+
             try {
                 socket.receive(url_packet);
-                String urlRegister = new String(url_packet.getData(), 0, url_packet.getLength());
-                registerRendezVous(urlRegister);
+                String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
+                
+                int status=registerRendezVous(rendezVousURL);
+                if (status == 204) {
+                    System.err.println("Service registered succesfully");
+                    break;
+                }
+                System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
             } catch (SocketTimeoutException e) {
-                //No more servers respond to client request
-                break;
+                //No server responded within given time
             }
         }
-
     }
 
-    private static void registerRendezVous(String url) {
+    private static int registerRendezVous(String url) {
 
         ClientConfig config = new ClientConfig();
         Client client = ClientBuilder.newClient(config);
 
-        URI baseURI = UriBuilder.fromUri(url).build();
-
-        WebTarget target = client.target(baseURI);
-
-        Endpoint endpoint = new Endpoint(hostname + ":" + port + "/", Collections.emptyMap());
-
-        Response response = target.path("/" + endpoint.generateId())
+        URI rendezVousAddr = UriBuilder.fromUri(url).build();
+       
+        WebTarget target = client.target(rendezVousAddr);
+   
+        Endpoint endpoint = new Endpoint(baseUri.toString(), Collections.emptyMap());
+        
+        Response response = target.path("/contacts/" + endpoint.generateId())
                 .request()
                 .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
-
-        System.out.println(response.getStatus());
+        
+        return response.getStatus();
     }
-
 }

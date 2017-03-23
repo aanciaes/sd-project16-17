@@ -1,6 +1,5 @@
 package api;
 
-import api.Endpoint;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -17,33 +16,33 @@ import javax.ws.rs.core.MediaType;
 @Path("/contacts")
 public interface RendezVousAPI {
 
-	/**
-	 * Devolve array com a lista de servidores registados.
-	 */
-         @GET
-         @Produces(MediaType.APPLICATION_JSON)         
-	Endpoint[] endpoints();
+    /**
+     * Devolve array com a lista de servidores registados.
+     */
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    Endpoint[] endpoints();
 
-	/**
-	 * Regista novo servidor.
-	 */
-        @POST
-	@Path("/{id}")
-	@Consumes(MediaType.APPLICATION_JSON)
-	void register(@PathParam("id") String id, Endpoint endpoint);
-        
-        /**
-         * Updates an existing server
-         */
-        @PUT
-	@Path("/{id}")
-	@Consumes(MediaType.APPLICATION_JSON)
-        public void update(String id, Endpoint endpoint);
+    /**
+     * Regista novo servidor.
+     */
+    @POST
+    @Path("/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    void register(@PathParam("id") String id, Endpoint endpoint);
 
-	/**
-	 * De-regista servidor, dado o seu id.
-	 */
-        @DELETE
-        @Path ("/{id}")
-	void unregister(String id);
+    /**
+     * Updates an existing server
+     */
+    @PUT
+    @Path("/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void update(String id, Endpoint endpoint);
+
+    /**
+     * De-regista servidor, dado o seu id.
+     */
+    @DELETE
+    @Path("/{id}")
+    void unregister(String id);
 }

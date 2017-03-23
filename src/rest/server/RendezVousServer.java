@@ -13,7 +13,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 
 public class RendezVousServer {
 
-    //base url of this server - contains "http", ip address and port
+    //base url of this server - contains "http", ip address, port and base path
     private static URI baseUri;
 
     public static void main(String[] args) throws Exception {
@@ -24,7 +24,7 @@ public class RendezVousServer {
 
         //Setting server
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
-        baseUri = UriBuilder.fromUri("http://" + hostAddress + "/").port(port).build();
+        baseUri = UriBuilder.fromUri(String.format("http://%s/", hostAddress)).port(port).build();
 
         ResourceConfig config = new ResourceConfig();
         config.register(new RendezVousResources());
