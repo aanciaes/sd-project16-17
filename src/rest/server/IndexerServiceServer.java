@@ -6,6 +6,7 @@
 package rest.server;
 
 import api.Endpoint;
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
@@ -43,7 +44,7 @@ public class IndexerServiceServer {
 
         //Set up server
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
-        baseUri = UriBuilder.fromUri("http://" + hostAddress + "/").port(port).build();
+        baseUri = UriBuilder.fromUri(String.format("http://%s/", hostAddress)).port(port).build();
 
         ResourceConfig config = new ResourceConfig();
         config.register(new RendezVousResources());
@@ -89,6 +90,17 @@ public class IndexerServiceServer {
             } catch (SocketTimeoutException e) {
                 //No server responded within given time
             }
+        }
+        
+        while(true){
+            byte[] buffer = new byte[65536];
+            DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
+            socket.receive(url_packet);
+           
+            if (new String(url_packet.getData(), 0, url_packet.getLength()).equals("RendezIsHere")) { //check if multicast message is meant for this server 
+
+                System.out.println("Rendez is alive!");
+            }//else ignore message
         }
     }
 

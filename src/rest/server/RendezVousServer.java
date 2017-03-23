@@ -5,6 +5,8 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.URI;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.ws.rs.core.UriBuilder;
 
@@ -15,6 +17,7 @@ public class RendezVousServer {
 
     //base url of this server - contains "http", ip address, port and base path
     private static URI baseUri;
+    private static MulticastSocket socket;
 
     public static void main(String[] args) throws Exception {
         int port = 8080;
@@ -41,23 +44,38 @@ public class RendezVousServer {
             System.exit(1);
         }
 
-        MulticastSocket socket = new MulticastSocket(6969);
+        socket = new MulticastSocket(6969);
         socket.joinGroup(address_multi);
 
+        Thread KeepAlive = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    heartKeepAlive(address_multi);
+                    
+                } catch (IOException ex) {
+                  
+                }
+            }
+        });
+        KeepAlive.start();
         //Waiting for a client request
         while (true) {
             byte[] buffer = new byte[65536];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             socket.receive(packet);
             processMessage(packet, socket);
+
         }
+
     }
 
     /**
-     * Processes the messages received in the multicast socket
-     * Checks whether or not the message is meant to this server and if so, it replies with this server location - ip address and port
+     * Processes the messages received in the multicast socket Checks whether or
+     * not the message is meant to this server and if so, it replies with this
+     * server location - ip address and port
      *
-     * @param packet Datagram Packet send by someone and received in the multicast socket
+     * @param packet Datagram Packet send by someone and received in the
+     * multicast socket
      * @param socket Multicast Socket
      */
     private static void processMessage(DatagramPacket packet, MulticastSocket socket) {
@@ -77,5 +95,30 @@ public class RendezVousServer {
         } catch (IOException ex) {
             System.err.println("Error processing message from client. No reply was sent");
         }
+    }
+
+    private static void heartKeepAlive(InetAddress inetadress) throws IOException {
+
+        byte[] input = ("RendezIsHere").getBytes();
+        DatagramPacket packet = new DatagramPacket(input, input.length);
+
+        packet.setAddress(inetadress);
+        packet.setPort(6969);
+
+        socket.send(packet);
+
+        //Waiting for a client keepAlive response
+        while (true) {
+
+            byte[] buffer = new byte[65536];
+            DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+            socket.receive(response);
+            processKeepAliveMessage(response, socket);
+
+        }
+    }
+
+    private static void processKeepAliveMessage(DatagramPacket response, MulticastSocket socket) {
+
     }
 }
