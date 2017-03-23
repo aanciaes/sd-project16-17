@@ -6,7 +6,10 @@
 package rest.server;
 
 import api.Endpoint;
+import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.net.MulticastSocket;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.Collections;
 import javax.ws.rs.client.Client;
@@ -26,36 +29,71 @@ import org.glassfish.jersey.server.ResourceConfig;
  */
 public class IndexerServiceServer {
 
+    private static String hostname;
+    private static int port;
+
+    private static String message = "RendezVousServer";
+    private static int TIMEOUT = 1000;
+
     public static void main(String[] args) throws Exception {
-        int port = 8080;
+        port = 8080;
         if (args.length > 0) {
             port = Integer.parseInt(args[0]);
         }
-        String url = "http://" + InetAddress.getLocalHost().getHostAddress() + "/";
-        System.err.println(url);
-        URI baseUri = UriBuilder.fromUri(url).port(port).build();
+        hostname = "http://" + InetAddress.getLocalHost().getHostAddress();
+
+        URI baseUri = UriBuilder.fromUri(hostname + "/").port(port).build();
 
         ResourceConfig config = new ResourceConfig();
         config.register(new RendezVousResources());
 
         JdkHttpServerFactory.createHttpServer(baseUri, config);
 
-        System.err.println("REST IndexerService Server ready @ " + baseUri+ " : local IP = " + InetAddress.getLocalHost().getHostAddress());
-        System.err.println(baseUri.toString());
-        registerRendezVous(baseUri.toString());
+        System.err.println("REST IndexerService Server ready @ " + baseUri + " : local IP = " + InetAddress.getLocalHost().getHostAddress());
+
+        final int portMulti = 6969;
+        final InetAddress address = InetAddress.getByName("238.69.69.69");
+        if (!address.isMulticastAddress()) {
+            System.out.println("Use range : 224.0.0.0 -- 239.255.255.255");
+        }
+
+        MulticastSocket socket = new MulticastSocket();
+
+        byte[] input = (message).getBytes();
+        DatagramPacket packet = new DatagramPacket(input, input.length);
+        packet.setAddress(address);
+        packet.setPort(portMulti);
+        socket.send(packet);
+
+        byte[] buffer = new byte[65536];
+        DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
+        socket.setSoTimeout(TIMEOUT);
+
+        while (true) {
+            try {
+                socket.receive(url_packet);
+                String urlRegister = new String(url_packet.getData(), 0, url_packet.getLength());
+                registerRendezVous(urlRegister);
+            } catch (SocketTimeoutException e) {
+                //No more servers respond to client request
+                break;
+            }
+        }
+
     }
 
     private static void registerRendezVous(String url) {
+
         ClientConfig config = new ClientConfig();
         Client client = ClientBuilder.newClient(config);
 
-        URI baseURI = UriBuilder.fromUri("http://172.17.0.2:8080/").build();
+        URI baseURI = UriBuilder.fromUri(url).build();
 
         WebTarget target = client.target(baseURI);
-        
-        Endpoint endpoint = new Endpoint(url, Collections.emptyMap());
-        
-        Response response = target.path("/contacts/" + endpoint.generateId())
+
+        Endpoint endpoint = new Endpoint(hostname + ":" + port + "/", Collections.emptyMap());
+
+        Response response = target.path("/" + endpoint.generateId())
                 .request()
                 .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
 
