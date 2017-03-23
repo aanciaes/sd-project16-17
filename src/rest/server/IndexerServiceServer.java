@@ -12,6 +12,7 @@ import java.net.MulticastSocket;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.Collections;
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
@@ -78,8 +79,8 @@ public class IndexerServiceServer {
             try {
                 socket.receive(url_packet);
                 String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
-                
-                int status=registerRendezVous(rendezVousURL);
+
+                int status = registerRendezVous(rendezVousURL);
                 if (status == 204) {
                     System.err.println("Service registered succesfully");
                     break;
@@ -97,15 +98,19 @@ public class IndexerServiceServer {
         Client client = ClientBuilder.newClient(config);
 
         URI rendezVousAddr = UriBuilder.fromUri(url).build();
-       
+
         WebTarget target = client.target(rendezVousAddr);
-   
+
         Endpoint endpoint = new Endpoint(baseUri.toString(), Collections.emptyMap());
         
-        Response response = target.path("/contacts/" + endpoint.generateId())
-                .request()
-                .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
-        
-        return response.getStatus();
+        try {
+           Response response = target.path("/contacts/" + endpoint.generateId())
+                    .request()
+                    .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
+           return response.getStatus();
+        } catch (ProcessingException ex) {
+            ex.printStackTrace();
+            return 0;
+        }
     }
 }
