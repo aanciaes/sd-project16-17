@@ -65,6 +65,7 @@ public class IndexerServiceServer {
 
         //Send multicast request with MESSAGE - Send up to three times
         for (int retry = 0; retry < 3; retry++) {
+
             byte[] input = (MESSAGE).getBytes();
             DatagramPacket packet = new DatagramPacket(input, input.length);
 
@@ -91,38 +92,46 @@ public class IndexerServiceServer {
                 //No server responded within given time
             }
         }
-        
-        while(true){
+        //Waiting for messages
+        while (true) {
             byte[] buffer = new byte[65536];
             DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
-            socket.receive(url_packet);
-           
-            if (new String(url_packet.getData(), 0, url_packet.getLength()).equals("RendezIsHere")) { //check if multicast message is meant for this server 
+            try {
+                socket.receive(url_packet);
 
-                System.out.println("Rendez is alive!");
-            }//else ignore message
+                if (new String(url_packet.getData(), 0, url_packet.getLength()).equals("AreYouAlive")) { //check if multicast message is meant for this server 
+
+                    System.out.println("HeartBeat recieved!");
+                }//else ignore message
+
+            } catch (SocketTimeoutException e) {
+
+            }
         }
     }
 
     private static int registerRendezVous(String url) {
 
-        ClientConfig config = new ClientConfig();
-        Client client = ClientBuilder.newClient(config);
+        for (int retry = 0; retry < 3; retry++) {
 
-        URI rendezVousAddr = UriBuilder.fromUri(url).build();
+            ClientConfig config = new ClientConfig();
+            Client client = ClientBuilder.newClient(config);
 
-        WebTarget target = client.target(rendezVousAddr);
+            URI rendezVousAddr = UriBuilder.fromUri(url).build();
 
-        Endpoint endpoint = new Endpoint(baseUri.toString(), Collections.emptyMap());
-        
-        try {
-           Response response = target.path("/contacts/" + endpoint.generateId())
-                    .request()
-                    .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
-           return response.getStatus();
-        } catch (ProcessingException ex) {
-            ex.printStackTrace();
-            return 0;
+            WebTarget target = client.target(rendezVousAddr);
+
+            Endpoint endpoint = new Endpoint(baseUri.toString(), Collections.emptyMap());
+
+            try {
+                Response response = target.path("/contacts/" + endpoint.generateId())
+                        .request()
+                        .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
+                return response.getStatus();
+            } catch (ProcessingException ex) {
+
+            }
         }
+        return 0;
     }
 }

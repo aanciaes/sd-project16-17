@@ -47,25 +47,43 @@ public class RendezVousServer {
         socket = new MulticastSocket(6969);
         socket.joinGroup(address_multi);
 
+        //Creating keepAlive thread
         Thread KeepAlive = new Thread(new Runnable() {
             public void run() {
-                try {
-                    heartKeepAlive(address_multi);
-                    
-                } catch (IOException ex) {
-                  
+
+                while (true) {
+
+                    try {
+                        heartKeepAlive(address_multi, socket);
+
+                    } catch (IOException ex) {
+
+                    }
                 }
             }
         });
+
         KeepAlive.start();
+
         //Waiting for a client request
         while (true) {
             byte[] buffer = new byte[65536];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             socket.receive(packet);
-            processMessage(packet, socket);
+            processMessages(packet, socket);
 
         }
+
+    }
+
+    private static void heartKeepAlive(InetAddress inetadress, MulticastSocket socket) throws IOException {
+
+        byte[] input = ("AreYouAlive").getBytes();
+        DatagramPacket packet = new DatagramPacket(input, input.length);
+        packet.setAddress(inetadress);
+        packet.setPort(6969);
+
+        socket.send(packet);
 
     }
 
@@ -78,43 +96,38 @@ public class RendezVousServer {
      * multicast socket
      * @param socket Multicast Socket
      */
-    private static void processMessage(DatagramPacket packet, MulticastSocket socket) {
+    private static void processRegister(DatagramPacket packet, MulticastSocket socket) {
 
         try {
-            if (new String(packet.getData(), 0, packet.getLength()).equals("RendezVousServer")) { //check if multicast message is meant for this server 
+            //check if multicast message is meant for this server 
 
-                byte[] input = baseUri.toString().getBytes();
-                DatagramPacket reply = new DatagramPacket(input, input.length);
+            byte[] input = baseUri.toString().getBytes();
+            DatagramPacket reply = new DatagramPacket(input, input.length);
 
-                //set reply packet destination
-                reply.setAddress(packet.getAddress());
-                reply.setPort(packet.getPort());
+            //set reply packet destination
+            reply.setAddress(packet.getAddress());
+            reply.setPort(packet.getPort());
 
-                socket.send(reply);
-            }//else ignore message
+            socket.send(reply);
+            //else ignore message
         } catch (IOException ex) {
             System.err.println("Error processing message from client. No reply was sent");
         }
     }
 
-    private static void heartKeepAlive(InetAddress inetadress) throws IOException {
+    private static void processMessages(DatagramPacket response, MulticastSocket socket) {
+        String request = new String(response.getData(), 0, response.getLength());
 
-        byte[] input = ("RendezIsHere").getBytes();
-        DatagramPacket packet = new DatagramPacket(input, input.length);
+        switch (request) {
+            case "RendezVousServer":
+                processRegister(response, socket);
+                break;
+            case "IAmAlive":
+                processKeepAliveMessage(response, socket);
+                break;
 
-        packet.setAddress(inetadress);
-        packet.setPort(6969);
-
-        socket.send(packet);
-
-        //Waiting for a client keepAlive response
-        while (true) {
-
-            byte[] buffer = new byte[65536];
-            DatagramPacket response = new DatagramPacket(buffer, buffer.length);
-            socket.receive(response);
-            processKeepAliveMessage(response, socket);
-
+            default:
+                break;
         }
     }
 
