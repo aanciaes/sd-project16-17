@@ -6,7 +6,6 @@
 package rest.server;
 
 import api.Endpoint;
-import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
@@ -92,22 +91,6 @@ public class IndexerServiceServer {
                 //No server responded within given time
             }
         }
-        //Waiting for messages
-        while (true) {
-            byte[] buffer = new byte[65536];
-            DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
-            try {
-                socket.receive(url_packet);
-
-                if (new String(url_packet.getData(), 0, url_packet.getLength()).equals("AreYouAlive")) { //check if multicast message is meant for this server 
-
-                    System.out.println("HeartBeat recieved!");
-                }//else ignore message
-
-            } catch (SocketTimeoutException e) {
-
-            }
-        }
     }
 
     private static int registerRendezVous(String url) {
@@ -129,7 +112,7 @@ public class IndexerServiceServer {
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();
             } catch (ProcessingException ex) {
-
+                //
             }
         }
         return 0;

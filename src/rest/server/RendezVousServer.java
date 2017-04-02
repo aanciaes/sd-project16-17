@@ -5,8 +5,6 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.URI;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import javax.ws.rs.core.UriBuilder;
 
@@ -25,7 +23,7 @@ public class RendezVousServer {
             port = Integer.parseInt(args[0]);
         }
 
-        //Setting server
+        //Setting server up
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
         baseUri = UriBuilder.fromUri(String.format("http://%s/", hostAddress)).port(port).build();
 
@@ -47,23 +45,23 @@ public class RendezVousServer {
         socket = new MulticastSocket(6969);
         socket.joinGroup(address_multi);
 
-        //Creating keepAlive thread
-        Thread KeepAlive = new Thread(new Runnable() {
-            public void run() {
-
-                while (true) {
-
-                    try {
-                        heartKeepAlive(address_multi, socket);
-
-                    } catch (IOException ex) {
-
-                    }
-                }
-            }
-        });
-
-        KeepAlive.start();
+//        //Creating keepAlive thread
+//        Thread KeepAlive = new Thread(new Runnable() {
+//            public void run() {
+//
+//                while (true) {
+//
+//                    try {
+//                        heartKeepAlive(address_multi, socket);
+//
+//                    } catch (IOException ex) {
+//
+//                    }
+//                }
+//            }
+//        });
+//
+//        KeepAlive.start();
 
         //Waiting for a client request
         while (true) {
@@ -71,19 +69,7 @@ public class RendezVousServer {
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             socket.receive(packet);
             processMessages(packet, socket);
-
         }
-
-    }
-
-    private static void heartKeepAlive(InetAddress inetadress, MulticastSocket socket) throws IOException {
-
-        byte[] input = ("AreYouAlive").getBytes();
-        DatagramPacket packet = new DatagramPacket(input, input.length);
-        packet.setAddress(inetadress);
-        packet.setPort(6969);
-
-        socket.send(packet);
 
     }
 
@@ -96,7 +82,7 @@ public class RendezVousServer {
      * multicast socket
      * @param socket Multicast Socket
      */
-    private static void processRegister(DatagramPacket packet, MulticastSocket socket) {
+    private static void register(DatagramPacket packet, MulticastSocket socket) {
 
         try {
             //check if multicast message is meant for this server 
@@ -120,7 +106,7 @@ public class RendezVousServer {
 
         switch (request) {
             case "RendezVousServer":
-                processRegister(response, socket);
+                register(response, socket);
                 break;
             case "IAmAlive":
                 processKeepAliveMessage(response, socket);
@@ -132,6 +118,6 @@ public class RendezVousServer {
     }
 
     private static void processKeepAliveMessage(DatagramPacket response, MulticastSocket socket) {
-
+            
     }
 }
