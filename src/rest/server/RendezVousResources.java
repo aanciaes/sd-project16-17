@@ -4,7 +4,6 @@ import api.Endpoint;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.ws.rs.PathParam;
 import javax.ws.rs.WebApplicationException;
 
 import api.RendezVousAPI;
