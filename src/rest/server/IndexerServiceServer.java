@@ -31,7 +31,7 @@ import org.glassfish.jersey.server.ResourceConfig;
  */
 public class IndexerServiceServer {
 
-    private static final String MESSAGE = "RendezVousServer";
+    private static final String MESSAGE = "rendezvous";
     private static final String HEARTBEATMESSAGE = "IAmAlive";
     private static final int TIMEOUT = 1000;
 
@@ -42,17 +42,17 @@ public class IndexerServiceServer {
     public static void main(String[] args) throws Exception {
         int port = 8080;
         if (args.length > 0) {
-            port = Integer.parseInt(args[0]);
+            rendezVousAddr=UriBuilder.fromUri(args[0]).build();
         }
 
         //Set up server
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
-        baseUri = UriBuilder.fromUri(String.format("http://%s/", hostAddress)).port(port).build();
+        baseUri = UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress)).port(port).build();
         
         endpoint = new Endpoint(baseUri.toString(), Collections.emptyMap());
 
         ResourceConfig config = new ResourceConfig();
-        config.register(new RendezVousResources());
+        config.register(new IndexerServiceResources());
         JdkHttpServerFactory.createHttpServer(baseUri, config);
 
         System.err.println("REST IndexerService Server ready @ " + baseUri);

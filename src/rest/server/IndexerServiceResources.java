@@ -14,14 +14,14 @@ import sys.storage.LocalVolatileStorage;
  *
  * @author miguel
  */
-public class IndexerServiceResources implements IndexerServiceAPI {
+public class IndexerServiceResources implements IndexerServiceAPI{
 
-    private LocalVolatileStorage storage = new LocalVolatileStorage();
+    private final LocalVolatileStorage storage = new LocalVolatileStorage();
 
     @Override
     public List<String> search(String keywords) {
-        String [] split = keywords.split(keywords);
-        System.err.println(keywords);
+        //String [] split = keywords.split(keywords);
+        //System.err.println(keywords);
         //return storage.search(keywords);
         return null;
     }

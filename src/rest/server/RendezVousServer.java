@@ -124,7 +124,7 @@ public class RendezVousServer {
         String[] split = request.split("/");
 
         switch (split[0]) {
-            case "RendezVousServer":
+            case "rendezvous":
                 register(response, socket);
                 break;
             case "IAmAlive":
