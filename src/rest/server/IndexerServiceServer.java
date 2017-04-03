@@ -6,6 +6,7 @@
 package rest.server;
 
 import api.Endpoint;
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
@@ -31,9 +32,12 @@ import org.glassfish.jersey.server.ResourceConfig;
 public class IndexerServiceServer {
 
     private static final String MESSAGE = "RendezVousServer";
+    private static final String HEARTBEATMESSAGE = "IAmAlive";
     private static final int TIMEOUT = 1000;
 
     private static URI baseUri;
+    private static Endpoint endpoint;
+    private static URI rendezVousAddr;
 
     public static void main(String[] args) throws Exception {
         int port = 8080;
@@ -44,6 +48,8 @@ public class IndexerServiceServer {
         //Set up server
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
         baseUri = UriBuilder.fromUri(String.format("http://%s/", hostAddress)).port(port).build();
+        
+        endpoint = new Endpoint(baseUri.toString(), Collections.emptyMap());
 
         ResourceConfig config = new ResourceConfig();
         config.register(new RendezVousResources());
@@ -86,11 +92,39 @@ public class IndexerServiceServer {
                     System.err.println("Service registered succesfully");
                     break;
                 }
+                System.exit(0);
                 System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
             } catch (SocketTimeoutException e) {
                 //No server responded within given time
             }
         }
+        
+        //Creating keepAlive thread
+        Thread heartbeat = new Thread(new Runnable() {
+            public void run() {
+
+                while (true) {
+                    
+                    try {
+                        MulticastSocket socket = new MulticastSocket();
+                        
+                        byte[] input = (HEARTBEATMESSAGE+ "/" + endpoint.generateId()).getBytes();                      
+                        DatagramPacket packet = new DatagramPacket(input, input.length);
+                        packet.setAddress(InetAddress.getByName("238.69.69.69"));
+                        packet.setPort(6969);
+                        
+                        socket.send(packet);
+                        Thread.sleep(3000);
+                        
+                    } catch (IOException | InterruptedException ex) {
+                       
+                    }
+                }
+            }
+
+        });
+
+        heartbeat.start();
     }
 
     private static int registerRendezVous(String url) {
@@ -100,11 +134,9 @@ public class IndexerServiceServer {
             ClientConfig config = new ClientConfig();
             Client client = ClientBuilder.newClient(config);
 
-            URI rendezVousAddr = UriBuilder.fromUri(url).build();
+            rendezVousAddr = UriBuilder.fromUri(url).build();
 
             WebTarget target = client.target(rendezVousAddr);
-
-            Endpoint endpoint = new Endpoint(baseUri.toString(), Collections.emptyMap());
 
             try {
                 Response response = target.path("/contacts/" + endpoint.generateId())

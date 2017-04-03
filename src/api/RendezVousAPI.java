@@ -37,12 +37,12 @@ public interface RendezVousAPI {
     @PUT
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
-    public void update(String id, Endpoint endpoint);
+    public void update(@PathParam("id") String id, Endpoint endpoint);
 
     /**
      * De-regista servidor, dado o seu id.
      */
     @DELETE
     @Path("/{id}")
-    void unregister(String id);
+    void unregister(@PathParam("id") String id);
 }

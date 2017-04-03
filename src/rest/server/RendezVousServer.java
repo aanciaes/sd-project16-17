@@ -5,19 +5,33 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.URI;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.ws.rs.ProcessingException;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.Response;
 
 import javax.ws.rs.core.UriBuilder;
+import org.glassfish.jersey.client.ClientConfig;
 
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 
 public class RendezVousServer {
 
+    private static final int TIMEOUT = 5000;
+
     //base url of this server - contains "http", ip address, port and base path
     private static URI baseUri;
     private static MulticastSocket socket;
 
+    private static Map<String, Long> servers;
+
     public static void main(String[] args) throws Exception {
+        servers = new ConcurrentHashMap<>();
+
         int port = 8080;
         if (args.length > 0) {
             port = Integer.parseInt(args[0]);
@@ -45,23 +59,28 @@ public class RendezVousServer {
         socket = new MulticastSocket(6969);
         socket.joinGroup(address_multi);
 
-//        //Creating keepAlive thread
-//        Thread KeepAlive = new Thread(new Runnable() {
-//            public void run() {
-//
-//                while (true) {
-//
-//                    try {
-//                        heartKeepAlive(address_multi, socket);
-//
-//                    } catch (IOException ex) {
-//
-//                    }
-//                }
-//            }
-//        });
-//
-//        KeepAlive.start();
+        //Creating keepAlive thread
+        Thread cleanUp = new Thread(new Runnable() {
+            public void run() {
+
+                while (true) {
+                    for (String key : servers.keySet()) {
+                        if (System.currentTimeMillis() - servers.get(key) > TIMEOUT) {
+                            deleteServer(key);
+                        }
+                    }
+
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ex) {
+
+                    }
+                }
+            }
+
+        });
+
+        cleanUp.start();
 
         //Waiting for a client request
         while (true) {
@@ -70,7 +89,6 @@ public class RendezVousServer {
             socket.receive(packet);
             processMessages(packet, socket);
         }
-
     }
 
     /**
@@ -103,13 +121,14 @@ public class RendezVousServer {
 
     private static void processMessages(DatagramPacket response, MulticastSocket socket) {
         String request = new String(response.getData(), 0, response.getLength());
+        String[] split = request.split("/");
 
-        switch (request) {
+        switch (split[0]) {
             case "RendezVousServer":
                 register(response, socket);
                 break;
             case "IAmAlive":
-                processKeepAliveMessage(response, socket);
+                processKeepAliveMessage(split[1]);
                 break;
 
             default:
@@ -117,7 +136,34 @@ public class RendezVousServer {
         }
     }
 
-    private static void processKeepAliveMessage(DatagramPacket response, MulticastSocket socket) {
-            
+    private static void processKeepAliveMessage(String id) {
+        servers.put(id, System.currentTimeMillis());
+    }
+
+    private static void deleteServer(String key) {
+        servers.remove(key);
+
+        for (int retry = 0; retry < 3; retry++) {
+
+            ClientConfig config = new ClientConfig();
+            Client client = ClientBuilder.newClient(config);
+
+            URI rendezVousAddr = UriBuilder.fromUri(baseUri).build();
+
+            WebTarget target = client.target(rendezVousAddr);
+
+            try {
+                Response response = target.path("/contacts/" + key)
+                        .request()
+                        .delete();
+                if (response.getStatus() == 204) {
+                    break;
+                }
+
+            } catch (ProcessingException ex) {
+                //
+            }
+        }
+
     }
 }
