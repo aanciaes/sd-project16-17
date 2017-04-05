@@ -8,6 +8,8 @@ package rest.server;
 import api.Document;
 import api.IndexerServiceAPI;
 import java.util.List;
+import javax.ws.rs.WebApplicationException;
+import static javax.ws.rs.core.Response.Status.CONFLICT;
 import sys.storage.LocalVolatileStorage;
 
 /**
@@ -29,6 +31,9 @@ public class IndexerServiceResources implements IndexerServiceAPI{
     @Override
     public void add(String id, Document doc) {
         boolean status = storage.store(id, doc);
+        if(!status){
+            throw new WebApplicationException(CONFLICT);
+        }
         System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
     }
 

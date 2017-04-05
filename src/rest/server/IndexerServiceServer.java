@@ -47,9 +47,9 @@ public class IndexerServiceServer {
 
         //Set up server
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
-        baseUri = UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress)).port(port).build();
+        baseUri = UriBuilder.fromUri(String.format("http://%s/", "0.0.0.0")).port(port).build();
         
-        endpoint = new Endpoint(baseUri.toString(), Collections.emptyMap());
+        endpoint = new Endpoint(UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress)).port(port).build().toString(), Collections.emptyMap());
 
         ResourceConfig config = new ResourceConfig();
         config.register(new IndexerServiceResources());
