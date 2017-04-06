@@ -24,7 +24,9 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     @Override
     public List<String> search(String keywords) {
-        String[] split = keywords.split("+");
+        System.err.println(keywords);
+        String[] split = keywords.split("\\+");
+        System.err.println(split);
         for(int i = 0; i < split.length; i++){
             System.out.println(split[i]);
         }
