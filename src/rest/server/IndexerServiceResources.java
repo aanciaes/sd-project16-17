@@ -6,12 +6,30 @@
 package rest.server;
 
 import api.Document;
+import api.Endpoint;
 import api.IndexerServiceAPI;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.InetAddress;
+import java.net.MulticastSocket;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import static javax.ws.rs.core.Response.Status.CONFLICT;
+import static javax.ws.rs.core.Response.Status.NOT_FOUND;
+import javax.ws.rs.core.UriBuilder;
+import org.glassfish.jersey.client.ClientConfig;
 import sys.storage.LocalVolatileStorage;
 
 /**
@@ -24,21 +42,18 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     @Override
     public List<String> search(String keywords) {
-        System.err.println(keywords);
+
         String[] split = keywords.split("\\+");
-        System.err.println(split);
-        for(int i = 0; i < split.length; i++){
-            System.out.println(split[i]);
-        }
+
         List<String> request = Arrays.asList(split);
         List<Document> Sresponse = storage.search(request);
         List<String> finalResponse = new ArrayList<>();
-        
-        for(int i = 0; i < Sresponse.size(); i++){
+
+        for (int i = 0; i < Sresponse.size(); i++) {
             String url = Sresponse.get(i).getUrl();
             finalResponse.add(i, url);
         }
-      
+
         return finalResponse;
     }
 
@@ -53,6 +68,66 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     @Override
     public void remove(String id) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+
+        try {
+            //Getting rendezVous url
+            MulticastSocket socket = new MulticastSocket();
+
+            byte[] input = ("rendezvous").getBytes();
+            DatagramPacket packet = new DatagramPacket(input, input.length);
+
+            packet.setAddress(InetAddress.getByName("238.69.69.69"));
+            packet.setPort(6969);
+
+            socket.send(packet);
+
+            byte[] buffer = new byte[65536];
+            DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
+
+            try {
+                socket.receive(url_packet);
+                String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
+                
+                //Creating a client to ask for Endpoints[] on rendezVous
+                ClientConfig config = new ClientConfig();
+                Client client = ClientBuilder.newClient(config);
+
+                WebTarget target = client.target(rendezVousURL);
+                Endpoint[] endpoints = target.path("/contacts")
+                        .request()
+                        .accept(MediaType.APPLICATION_JSON)
+                        .get(Endpoint[].class);
+                
+                int status = 404;
+                //Removing the asked document from all indexers
+                for (int i = 0; i < endpoints.length; i++) {
+                    WebTarget newTarget = client.target(endpoints[i].getUrl());
+                    Response response = target.path("/indexer/remove/" + id).request().delete();
+                    if(status == 404){
+                        status = response.getStatus();
+                    }
+                }
+                
+                if(status == 404)
+                   throw new WebApplicationException(CONFLICT);
+               
+           
+            } catch (SocketTimeoutException e) {
+              
+            }
+        } catch (IOException ex) {
+
+        }
+
     }
+
+    @Override
+    public void removeDoc(String id) {
+
+        boolean status = storage.remove(id);
+     
+        System.out.println(status ? "Document removed." : "Document doesn't exist.");
+   
+    }
+
 }
