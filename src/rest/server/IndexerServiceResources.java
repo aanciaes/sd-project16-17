@@ -16,19 +16,14 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import static javax.ws.rs.core.Response.Status.CONFLICT;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
-import javax.ws.rs.core.UriBuilder;
 import org.glassfish.jersey.client.ClientConfig;
 import sys.storage.LocalVolatileStorage;
 
@@ -98,18 +93,19 @@ public class IndexerServiceResources implements IndexerServiceAPI {
                         .accept(MediaType.APPLICATION_JSON)
                         .get(Endpoint[].class);
                 
-                int status = 404;
+                boolean removed = false;
                 //Removing the asked document from all indexers
                 for (int i = 0; i < endpoints.length; i++) {
                     WebTarget newTarget = client.target(endpoints[i].getUrl());
-                    Response response = target.path("/indexer/remove/" + id).request().delete();
-                    if(status == 404){
-                        status = response.getStatus();
+                    Response response = newTarget.path("/remove/" + id).request().delete();
+                    System.err.println(endpoints[i].getUrl() + "returned: " + response.getStatus());
+                    if(response.getStatus()==204){
+                        removed = true;
                     }
                 }
                 
-                if(status == 404)
-                   throw new WebApplicationException(CONFLICT);
+                if(!removed)
+                   throw new WebApplicationException(NOT_FOUND);
                
            
             } catch (SocketTimeoutException e) {
@@ -118,16 +114,16 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         } catch (IOException ex) {
 
         }
-
     }
 
     @Override
     public void removeDoc(String id) {
 
         boolean status = storage.remove(id);
+        if(!status)
+            throw new WebApplicationException(NOT_FOUND);
      
         System.out.println(status ? "Document removed." : "Document doesn't exist.");
-   
     }
 
 }
