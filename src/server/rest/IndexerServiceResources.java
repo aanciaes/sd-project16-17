@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package rest.server;
+package server.rest;
 
 import api.Document;
 import api.Endpoint;

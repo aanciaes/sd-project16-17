@@ -1,4 +1,4 @@
-package rest.server;
+package server.rest;
 
 import java.io.IOException;
 import java.net.DatagramPacket;

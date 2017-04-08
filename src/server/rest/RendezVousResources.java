@@ -1,4 +1,4 @@
-package rest.server;
+package server.rest;
 
 import api.Endpoint;
 import java.util.Map;
