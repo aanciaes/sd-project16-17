@@ -1,5 +1,6 @@
 package api.rest;
 
+import api.Document;
 import java.util.List;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;

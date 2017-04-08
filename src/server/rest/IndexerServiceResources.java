@@ -7,7 +7,7 @@ package server.rest;
 
 import api.Document;
 import api.Endpoint;
-import api.IndexerServiceAPI;
+import api.rest.IndexerServiceAPI;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;

@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.ws.rs.WebApplicationException;
 
-import api.RendezVousAPI;
+import api.rest.RendezVousAPI;
 
 import static javax.ws.rs.core.Response.Status.*;
 
