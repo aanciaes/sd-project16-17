@@ -16,6 +16,8 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URL;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -50,8 +52,9 @@ public class IndexerServiceServer {
 
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
         String baseURI = String.format("http://0.0.0.0:%d/indexer", port);
-
-        endpoint = new api.Endpoint(UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress)).port(port).build().toString(), Collections.emptyMap());
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("type", "soap");
+        endpoint = new api.Endpoint(UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress)).port(port).build().toString(),attributes);
         Endpoint.publish(baseURI, new IndexerServiceServerImpl());
 
         System.err.println("SOAP IndexerService Server ready @ " + baseURI);

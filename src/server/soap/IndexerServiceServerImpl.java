@@ -7,6 +7,8 @@ package server.soap;
 
 import api.Document;
 import api.soap.IndexerServiceAPI;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import javax.jws.WebService;
 import javax.ws.rs.WebApplicationException;
@@ -28,7 +30,18 @@ public class IndexerServiceServerImpl implements IndexerServiceAPI {
 
     @Override
     public List<String> search(String keywords) throws InvalidArgumentException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        String[] split = keywords.split("\\+");
+
+        List<String> request = Arrays.asList(split);
+        List<Document> Sresponse = storage.search(request);
+        List<String> finalResponse = new ArrayList<>();
+
+        for (int i = 0; i < Sresponse.size(); i++) {
+            String url = Sresponse.get(i).getUrl();
+            finalResponse.add(i, url);
+        }
+
+        return finalResponse;
     }
 
     @Override

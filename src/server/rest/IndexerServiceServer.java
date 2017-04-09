@@ -13,6 +13,8 @@ import java.net.MulticastSocket;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -42,14 +44,15 @@ public class IndexerServiceServer {
     public static void main(String[] args) throws Exception {
         int port = 8080;
         if (args.length > 0) {
-            rendezVousAddr=UriBuilder.fromUri(args[0]).build();
+            rendezVousAddr = UriBuilder.fromUri(args[0]).build();
         }
 
         //Set up server
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
         baseUri = UriBuilder.fromUri(String.format("http://%s/", "0.0.0.0")).port(port).build();
-        
-        endpoint = new Endpoint(UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress)).port(port).build().toString(), Collections.emptyMap());
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("type", "rest");
+        endpoint = new Endpoint(UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress)).port(port).build().toString(), attributes);
 
         ResourceConfig config = new ResourceConfig();
         config.register(new IndexerServiceResources());
@@ -98,26 +101,26 @@ public class IndexerServiceServer {
                 //No server responded within given time
             }
         }
-        
+
         //Creating keepAlive thread
         Thread heartbeat = new Thread(new Runnable() {
             public void run() {
 
                 while (true) {
-                    
+
                     try {
                         MulticastSocket socket = new MulticastSocket();
-                        
-                        byte[] input = (HEARTBEATMESSAGE+ "/" + endpoint.generateId()).getBytes();                      
+
+                        byte[] input = (HEARTBEATMESSAGE + "/" + endpoint.generateId()).getBytes();
                         DatagramPacket packet = new DatagramPacket(input, input.length);
                         packet.setAddress(InetAddress.getByName("238.69.69.69"));
                         packet.setPort(6969);
-                        
+
                         socket.send(packet);
                         Thread.sleep(3000);
-                        
+
                     } catch (IOException | InterruptedException ex) {
-                       
+
                     }
                 }
             }
