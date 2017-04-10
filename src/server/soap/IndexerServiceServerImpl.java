@@ -15,22 +15,18 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import javax.jws.WebService;
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
 import org.glassfish.jersey.client.ClientConfig;
 import sys.storage.LocalVolatileStorage;
 
-/**
- *
- * @author rmamaral
- */
 @WebService(
         serviceName = IndexerAPI.NAME,
         targetNamespace = IndexerAPI.NAMESPACE,
@@ -38,25 +34,26 @@ import sys.storage.LocalVolatileStorage;
 
 public class IndexerServiceServerImpl implements IndexerAPI {
 
-    private final LocalVolatileStorage storage = new LocalVolatileStorage();
-    private String rendezUrl;
+    private final LocalVolatileStorage storage = new LocalVolatileStorage(); //Documents "database"
+    private String rendezUrl; //RendezVous location
 
     @Override
     public List<String> search(String keywords) throws InvalidArgumentException {
         try {
-
+            //Split query words
             String[] split = keywords.split("\\+");
 
-            List<String> request = Arrays.asList(split);
-            List<Document> Sresponse = storage.search(request);
-            List<String> finalResponse = new ArrayList<>();
+            //Convert to list
+            List<String> query = Arrays.asList(split);
+            List<Document> documents = storage.search(query);
+            List<String> response = new ArrayList<>();
 
-            for (int i = 0; i < Sresponse.size(); i++) {
-                String url = Sresponse.get(i).getUrl();
-                finalResponse.add(i, url);
+            for (int i = 0; i < documents.size(); i++) {
+                String url = documents.get(i).getUrl();
+                response.add(i, url);
             }
 
-            return finalResponse;
+            return response;
         } catch (Exception e) {
             throw new InvalidArgumentException();
         }
@@ -71,7 +68,6 @@ public class IndexerServiceServerImpl implements IndexerAPI {
         } catch (Exception e) {
             throw new InvalidArgumentException();
         }
-
     }
 
     @Override
@@ -88,25 +84,26 @@ public class IndexerServiceServerImpl implements IndexerAPI {
                     .get(Endpoint[].class);
 
             boolean removed = false;
+            //Removing the asked document from all indexers
             for (int i = 0; i < endpoints.length; i++) {
+
                 Endpoint endpoint = endpoints[i];
                 String url = endpoint.getUrl();
                 Map<String, Object> map = endpoint.getAttributes();
 
+                //Defensive progamming checks if server is soap or rest and ignores other types
                 if (map.containsKey("type")) {
                     if (map.get("type").equals("soap")) {
                         if (removeSoap(id, url)) {
                             removed = true;
                         }
-
-                    } else if (map.get("type").equals("rest")) {
+                    }
+                    if (map.get("type").equals("rest")) {
                         if (removeRest(id, url)) {
                             removed = true;
                         }
-
                     }
-
-                } else {
+                } else { //if no type tag exists - treat as rest server
                     if (removeRest(id, url)) {
                         removed = true;
                     }
@@ -119,14 +116,12 @@ public class IndexerServiceServerImpl implements IndexerAPI {
         }
     }
 
-    void setUrl(String rendezVousURL
-    ) {
-        rendezUrl = rendezVousURL;
+    public void setUrl(String rendezVousURL) {
+        this.rendezUrl = rendezVousURL;
     }
 
     @Override
-    public boolean removeDoc(String id
-    ) {
+    public boolean removeDoc(String id) {
         return storage.remove(id);
     }
 
@@ -138,25 +133,26 @@ public class IndexerServiceServerImpl implements IndexerAPI {
             Service service = Service.create(wsURL, QNAME);
             IndexerAPI indexer = service.getPort(IndexerAPI.class);
             return indexer.removeDoc(id);
-
         } catch (MalformedURLException | InvalidArgumentException ex) {
             return false;
         }
     }
 
-    private boolean removeRest(String id, String url) {
+    private boolean removeRest(String id, String url) throws WebApplicationException {
+        for (int retry = 0; retry < 3; retry++) {
+            try {
+                ClientConfig config = new ClientConfig();
+                Client client = ClientBuilder.newClient(config);
+                WebTarget newTarget = client.target(url);
+                Response response = newTarget.path("/remove/" + id).request().delete();
 
-        try {
-            ClientConfig config = new ClientConfig();
-            Client client = ClientBuilder.newClient(config);
-            WebTarget newTarget = client.target(url);
-            Response response = newTarget.path("/remove/" + id).request().delete();
-
-            if (response.getStatus() == 204) {
-                return true;
+                //return response.getStatus();
+                if (response.getStatus() == 204) {
+                    return true;
+                }
+            } catch (ProcessingException x) {
+                //retry method up to three times
             }
-        } catch (WebApplicationException e) {
-            return false;
         }
         return false;
     }
