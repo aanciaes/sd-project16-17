@@ -77,11 +77,21 @@ public class IndexerServiceServerImpl implements IndexerAPI {
             ClientConfig config = new ClientConfig();
             Client client = ClientBuilder.newClient(config);
 
-            WebTarget target = client.target(rendezUrl);
-            Endpoint[] endpoints = target.path("/")
-                    .request()
-                    .accept(MediaType.APPLICATION_JSON)
-                    .get(Endpoint[].class);
+            Endpoint[] endpoints = null;
+            for (int retry = 0; retry < 3; retry++) {
+                try {
+                    WebTarget target = client.target(rendezUrl);
+                    endpoints = target.path("/")
+                            .request()
+                            .accept(MediaType.APPLICATION_JSON)
+                            .get(Endpoint[].class);
+                    if (endpoints != null) {
+                        break;
+                    }
+                } catch (ProcessingException ex) {
+                    //retry up to three times
+                }
+            }
 
             boolean removed = false;
             //Removing the asked document from all indexers
@@ -143,8 +153,8 @@ public class IndexerServiceServerImpl implements IndexerAPI {
             try {
                 ClientConfig config = new ClientConfig();
                 Client client = ClientBuilder.newClient(config);
-                WebTarget newTarget = client.target(url);
-                Response response = newTarget.path("/remove/" + id).request().delete();
+                WebTarget target = client.target(url);
+                Response response = target.path("/remove/" + id).request().delete();
 
                 //return response.getStatus();
                 if (response.getStatus() == 204) {

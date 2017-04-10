@@ -76,12 +76,22 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         //Getting all indexers registered in rendezvous
         ClientConfig config = new ClientConfig();
         Client client = ClientBuilder.newClient(config);
-
-        WebTarget target = client.target(rendezUrl);
-        Endpoint[] endpoints = target.path("/")
-                .request()
-                .accept(MediaType.APPLICATION_JSON)
-                .get(Endpoint[].class);
+        
+        Endpoint[] endpoints = null;
+        for (int retry = 0; retry < 3; retry++) {
+            try {
+                WebTarget target = client.target(rendezUrl);
+                endpoints = target.path("/")
+                        .request()
+                        .accept(MediaType.APPLICATION_JSON)
+                        .get(Endpoint[].class);
+                if (endpoints != null) {
+                    break;
+                }
+            } catch (ProcessingException ex) {
+                //retry up to three times
+            }
+        }
         //
 
         boolean removed = false;
@@ -149,7 +159,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
                 Client client = ClientBuilder.newClient(config);
                 WebTarget newTarget = client.target(url);
                 Response response = newTarget.path("/remove/" + id).request().delete();
-                
+
                 //return response.getStatus();
                 if (response.getStatus() == 204) {
                     return true;
