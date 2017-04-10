@@ -15,6 +15,7 @@ import java.net.MulticastSocket;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
@@ -38,24 +39,28 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     @Override
     public List<String> search(String keywords) {
 
-        String[] split = keywords.split("\\+");
+        String[] words = keywords.split("\\+");
 
-        List<String> request = Arrays.asList(split);
-        List<Document> Sresponse = storage.search(request);
-        List<String> finalResponse = new ArrayList<>();
-
-        for (int i = 0; i < Sresponse.size(); i++) {
-            String url = Sresponse.get(i).getUrl();
-            finalResponse.add(i, url);
+        //Convert to List
+        List<String> wordsLst = Arrays.asList(words);
+        
+        List<Document> documents = storage.search(wordsLst);
+        List<String> response = new ArrayList<>();
+        
+        //Convert to List<String>
+        for (Document doc : documents) {
+            String url = doc.getUrl();
+            response.add(url);
         }
 
-        return finalResponse;
+        return response;
     }
 
     @Override
     public void add(String id, Document doc) {
         boolean status = storage.store(id, doc);
         if (!status) {
+            //If document already exists in storage
             throw new WebApplicationException(CONFLICT);
         }
         System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
@@ -82,7 +87,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
             try {
                 socket.receive(url_packet);
                 String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
-                
+
                 //Creating a client to ask for Endpoints[] on rendezVous
                 ClientConfig config = new ClientConfig();
                 Client client = ClientBuilder.newClient(config);
@@ -92,24 +97,24 @@ public class IndexerServiceResources implements IndexerServiceAPI {
                         .request()
                         .accept(MediaType.APPLICATION_JSON)
                         .get(Endpoint[].class);
-                
+
                 boolean removed = false;
                 //Removing the asked document from all indexers
                 for (int i = 0; i < endpoints.length; i++) {
                     WebTarget newTarget = client.target(endpoints[i].getUrl());
                     Response response = newTarget.path("/remove/" + id).request().delete();
                     System.err.println(endpoints[i].getUrl() + "returned: " + response.getStatus());
-                    if(response.getStatus()==204){
+                    if (response.getStatus() == 204) {
                         removed = true;
                     }
                 }
-                
-                if(!removed)
-                   throw new WebApplicationException(NOT_FOUND);
-               
-           
+
+                if (!removed) {
+                    throw new WebApplicationException(NOT_FOUND);
+                }
+
             } catch (SocketTimeoutException e) {
-              
+
             }
         } catch (IOException ex) {
 
@@ -120,9 +125,10 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     public void removeDoc(String id) {
 
         boolean status = storage.remove(id);
-        if(!status)
+        if (!status) {
             throw new WebApplicationException(NOT_FOUND);
-     
+        }
+
         System.out.println(status ? "Document removed." : "Document doesn't exist.");
     }
 

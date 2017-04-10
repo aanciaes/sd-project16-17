@@ -12,7 +12,6 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import javax.ws.rs.ProcessingException;
@@ -27,66 +26,62 @@ import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 
-/**
- *
- * @author miguel
- */
 public class IndexerServiceServer {
 
-    private static final String MESSAGE = "rendezvous";
-    private static final String HEARTBEATMESSAGE = "IAmAlive";
-    private static final int TIMEOUT = 1000;
+    //Configuration IP, listen on all IPv4 addresses on local machine
+    private static final String ZERO_IP = "0.0.0.0";
+    private static final int PORT = 8081;
 
-    private static URI baseUri;
+    //Multicast address, port and message
+    private static final String MULTICAST_ADDRESS = "238.69.69.69";
+    private static final int MULTICAST_PORT = 6969;
+    private static final String MULTICAST_MESSAGE = "rendezvous";
+
+    private static final String HEARTBEAT_MESSAGE = "IAmAlive";
+    private static final int SOCKET_TIMEOUT = 1000;
+
+    //this.endpoint
     private static Endpoint endpoint;
+    //Rendezvous address
     private static URI rendezVousAddr;
 
     public static void main(String[] args) throws Exception {
-        int port = 8080;
         if (args.length > 0) {
             rendezVousAddr = UriBuilder.fromUri(args[0]).build();
         }
 
-        //Set up server
-        String hostAddress = InetAddress.getLocalHost().getHostAddress();
-        baseUri = UriBuilder.fromUri(String.format("http://%s/", "0.0.0.0")).port(port).build();
+        //Create endpoint
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("type", "rest");
-        endpoint = new Endpoint(UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress)).port(port).build().toString(), attributes);
 
+        String hostAddress = InetAddress.getLocalHost().getHostAddress();
+        endpoint = new Endpoint(UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress))
+                .port(PORT).build().toString(), attributes);
+        //
+
+        //Set up server
+        URI configURI = UriBuilder.fromUri(String.format("http://%s/", ZERO_IP)).port(PORT).build();
         ResourceConfig config = new ResourceConfig();
         config.register(new IndexerServiceResources());
-        JdkHttpServerFactory.createHttpServer(baseUri, config);
+        JdkHttpServerFactory.createHttpServer(configURI, config);
 
-        System.err.println("REST IndexerService Server ready @ " + baseUri);
+        System.err.println("REST IndexerService Server ready @ " + endpoint.getUrl());
         //
 
         //Discovering RendezVousServer
         //Setting up multicast request.
-        final int portMulti = 6969;
-        final InetAddress multiAddress = InetAddress.getByName("238.69.69.69");
-        if (!multiAddress.isMulticastAddress()) {
-            System.out.println("Use range : 224.0.0.0 -- 239.255.255.255");
-        }
-
         MulticastSocket socket = new MulticastSocket();
 
         //Send multicast request with MESSAGE - Send up to three times
         for (int retry = 0; retry < 3; retry++) {
 
-            byte[] input = (MESSAGE).getBytes();
-            DatagramPacket packet = new DatagramPacket(input, input.length);
-
-            packet.setAddress(multiAddress);
-            packet.setPort(portMulti);
-
-            socket.send(packet);
-
-            byte[] buffer = new byte[65536];
-            DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
-            socket.setSoTimeout(TIMEOUT);
-
             try {
+                sendMulticastPacket(socket, MULTICAST_MESSAGE);
+
+                byte[] buffer = new byte[65536];
+                DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
+                socket.setSoTimeout(SOCKET_TIMEOUT);
+
                 socket.receive(url_packet);
                 String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
 
@@ -95,41 +90,25 @@ public class IndexerServiceServer {
                     System.err.println("Service registered succesfully");
                     break;
                 }
-                System.exit(0);
                 System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
+                System.exit(0);
             } catch (SocketTimeoutException e) {
                 //No server responded within given time
+            } catch (IOException ex) {
+                //IO error
             }
         }
 
         //Creating keepAlive thread
-        Thread heartbeat = new Thread(new Runnable() {
-            public void run() {
-
-                while (true) {
-
-                    try {
-                        MulticastSocket socket = new MulticastSocket();
-
-                        byte[] input = (HEARTBEATMESSAGE + "/" + endpoint.generateId()).getBytes();
-                        DatagramPacket packet = new DatagramPacket(input, input.length);
-                        packet.setAddress(InetAddress.getByName("238.69.69.69"));
-                        packet.setPort(6969);
-
-                        socket.send(packet);
-                        Thread.sleep(3000);
-
-                    } catch (IOException | InterruptedException ex) {
-
-                    }
-                }
-            }
-
-        });
-
-        heartbeat.start();
+        new Thread(new HeartBeat()).start();
     }
 
+    /**
+     * Tries to register this endpoint on rendezvous server
+     *
+     * @param url rendezvous location
+     * @return return http message or 0 if some error occured
+     */
     private static int registerRendezVous(String url) {
 
         for (int retry = 0; retry < 3; retry++) {
@@ -151,5 +130,45 @@ public class IndexerServiceServer {
             }
         }
         return 0;
+    }
+
+    private static void sendMulticastPacket(MulticastSocket socket, String message) throws IOException {
+
+        final InetAddress multiAddress = InetAddress.getByName(MULTICAST_ADDRESS);
+        if (!multiAddress.isMulticastAddress()) {
+            System.out.println("Use range : 224.0.0.0 -- 239.255.255.255");
+        }
+
+        byte[] input = (message).getBytes();
+        DatagramPacket packet = new DatagramPacket(input, input.length);
+
+        packet.setAddress(multiAddress);
+        packet.setPort(MULTICAST_PORT);
+
+        socket.send(packet);
+    }
+
+    /**
+     * Thread class that handles the heartbeat system
+     */
+    static class HeartBeat implements Runnable {
+
+        @Override
+        public void run() {
+            while (true) {
+
+                try {
+                    MulticastSocket socket = new MulticastSocket();
+                    String message = HEARTBEAT_MESSAGE + "/" + endpoint.generateId();
+
+                    sendMulticastPacket(socket, message);
+
+                    Thread.sleep(3000);
+
+                } catch (IOException | InterruptedException ex) {
+                    //Some error occured
+                }
+            }
+        }
     }
 }

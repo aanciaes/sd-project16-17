@@ -21,12 +21,22 @@ import org.glassfish.jersey.server.ResourceConfig;
 
 public class RendezVousServer {
 
+    //Configuration IP, listen on all IPv4 addresses on local machine
+    private static final String ZERO_IP = "0.0.0.0";
+    //Failure detection set to 5 seconds
     private static final int TIMEOUT = 5000;
+    //Multicast Address, port and messages
+    private static final String MULTICAST_ADDRESS = "238.69.69.69";
+    private static final int MULTICAST_PORT = 6969;
+    private static final String MULTICAST_MESSAGE = "rendezvous";
+    private static final String KEEPALIVE_MESSAGE = "IAmAlive";
+
+    private static final int HTTP_SUCCESS_NOCONTENT = 204;
 
     //base url of this server - contains "http", ip address, port and base path
     private static URI baseUri;
-    private static MulticastSocket socket;
 
+    //Failure detection map
     private static Map<String, Long> servers;
 
     public static void main(String[] args) throws Exception {
@@ -38,73 +48,76 @@ public class RendezVousServer {
         }
 
         //Setting server up
-        String hostAddress = InetAddress.getLocalHost().getHostAddress();
-        baseUri = UriBuilder.fromUri(String.format("http://%s/", hostAddress)).port(port).build();
+        String hostIP = InetAddress.getLocalHost().getHostAddress();
+        baseUri = UriBuilder.fromUri(String.format("http://%s/", hostIP)).port(port).build();
+
+        URI configAddr = UriBuilder.fromUri(String.format("http://%s/", ZERO_IP)).port(port).build();
 
         ResourceConfig config = new ResourceConfig();
         config.register(new RendezVousResources());
-        JdkHttpServerFactory.createHttpServer(baseUri, config);
+        JdkHttpServerFactory.createHttpServer(configAddr, config);
 
         System.err.println("REST RendezVous Server ready @ " + baseUri);
         //
 
         //Creating Multicast Socket
-        final InetAddress address_multi = InetAddress.getByName("238.69.69.69");
-
+        final InetAddress address_multi = InetAddress.getByName(MULTICAST_ADDRESS);
         if (!address_multi.isMulticastAddress()) {
             System.out.println("Use range : 224.0.0.0 -- 239.255.255.255");
             System.exit(1);
         }
 
-        socket = new MulticastSocket(6969);
+        MulticastSocket socket = new MulticastSocket(MULTICAST_PORT);
         socket.joinGroup(address_multi);
 
-        //Creating keepAlive thread
-        Thread cleanUp = new Thread(new Runnable() {
-            public void run() {
-
-                while (true) {
-                    for (String key : servers.keySet()) {
-                        if (System.currentTimeMillis() - servers.get(key) > TIMEOUT) {
-                            deleteServer(key);
-                        }
-                    }
-
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException ex) {
-
-                    }
-                }
-            }
-
-        });
-
-        cleanUp.start();
+        //Creating and start keepAlive thread
+        new Thread(new DetectFail()).start();
 
         //Waiting for a client request
         while (true) {
             byte[] buffer = new byte[65536];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             socket.receive(packet);
-            processMessages(packet, socket);
+            processMessage(packet, socket);
         }
     }
 
     /**
      * Processes the messages received in the multicast socket Checks whether or
-     * not the message is meant to this server and if so, it replies with this
-     * server location - ip address and port
+     * not the message is meant to this server. Depending on the message
+     * received it replies with rendezvous location or performs heartbeat
+     * function
      *
      * @param packet Datagram Packet send by someone and received in the
      * multicast socket
      * @param socket Multicast Socket
      */
-    private static void register(DatagramPacket packet, MulticastSocket socket) {
+    private static void processMessage(DatagramPacket response, MulticastSocket socket) {
+        String request = new String(response.getData(), 0, response.getLength());
+        //In the "IamAlive" message, the endpoint id will come embedded in the message
+        String[] split = request.split("/");
 
+        switch (split[0]) {
+            case MULTICAST_MESSAGE:
+                multicastMessage(response, socket);
+                break;
+            case KEEPALIVE_MESSAGE:
+                keepAliveMessage(split[1]);
+                break;
+            default:    //Ignore message
+                break;
+        }
+    }
+
+    /**
+     * Processes multicast request Sends the rendezvous location to request
+     * sender
+     *
+     * @param packet Packet received containing the request and headers
+     * @param socket Multicast Socket for sending the response
+     */
+    private static void multicastMessage(DatagramPacket packet, MulticastSocket socket) {
         try {
-            //check if multicast message is meant for this server 
-
             byte[] input = baseUri.toString().getBytes();
             DatagramPacket reply = new DatagramPacket(input, input.length);
 
@@ -113,57 +126,70 @@ public class RendezVousServer {
             reply.setPort(packet.getPort());
 
             socket.send(reply);
-            //else ignore message
         } catch (IOException ex) {
             System.err.println("Error processing message from client. No reply was sent");
         }
     }
 
-    private static void processMessages(DatagramPacket response, MulticastSocket socket) {
-        String request = new String(response.getData(), 0, response.getLength());
-        String[] split = request.split("/");
-
-        switch (split[0]) {
-            case "rendezvous":
-                register(response, socket);
-                break;
-            case "IAmAlive":
-                processKeepAliveMessage(split[1]);
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    private static void processKeepAliveMessage(String id) {
+    /**
+     * Inserts or replaces entry with given id with new message timestamp
+     *
+     * @param id Endpoint ID
+     */
+    private static void keepAliveMessage(String id) {
         servers.put(id, System.currentTimeMillis());
     }
 
-    private static void deleteServer(String key) {
-        servers.remove(key);
+    /**
+     * Thread class that handles all the indexer failure detection
+     */
+    static class DetectFail implements Runnable {
 
-        for (int retry = 0; retry < 3; retry++) {
+        @Override
+        public void run() {
 
-            ClientConfig config = new ClientConfig();
-            Client client = ClientBuilder.newClient(config);
-
-            URI rendezVousAddr = UriBuilder.fromUri(baseUri).build();
-
-            WebTarget target = client.target(rendezVousAddr);
-
-            try {
-                Response response = target.path("/contacts/" + key)
-                        .request()
-                        .delete();
-                if (response.getStatus() == 204) {
-                    break;
+            while (true) {
+                for (String key : servers.keySet()) {
+                    if (System.currentTimeMillis() - servers.get(key) > TIMEOUT) {
+                        deleteServer(key);
+                    }
                 }
-
-            } catch (ProcessingException ex) {
-                //
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ex) {
+                }
             }
         }
 
+        /**
+         * Deletes the Indexer Server with given key
+         *
+         * @param key
+         */
+        private static void deleteServer(String key) {
+            servers.remove(key);
+
+            for (int retry = 0; retry < 3; retry++) {
+
+                ClientConfig config = new ClientConfig();
+                Client client = ClientBuilder.newClient(config);
+
+                URI rendezVousAddr = UriBuilder.fromUri(baseUri).build();
+
+                WebTarget target = client.target(rendezVousAddr);
+
+                try {
+                    Response response = target.path("/contacts/" + key)
+                            .request()
+                            .delete();
+                    if (response.getStatus() == HTTP_SUCCESS_NOCONTENT) {
+                        break;
+                    }
+
+                } catch (ProcessingException ex) {
+                    //retry
+                }
+            }
+        }
     }
 }

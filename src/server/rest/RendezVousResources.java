@@ -11,7 +11,7 @@ import api.rest.RendezVousAPI;
 import static javax.ws.rs.core.Response.Status.*;
 
 /**
- * Implementacao do servidor de rendezvous em REST
+ * Rendezvous Restful service implementation
  */
 public class RendezVousResources implements RendezVousAPI {
 
