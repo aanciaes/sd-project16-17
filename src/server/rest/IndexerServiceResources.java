@@ -8,15 +8,18 @@ package server.rest;
 import api.Document;
 import api.Endpoint;
 import api.rest.IndexerServiceAPI;
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
-import java.net.SocketTimeoutException;
+import api.soap.IndexerAPI;
+import static api.soap.IndexerAPI.NAME;
+import static api.soap.IndexerAPI.NAMESPACE;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -25,6 +28,8 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import static javax.ws.rs.core.Response.Status.CONFLICT;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
+import javax.xml.namespace.QName;
+import javax.xml.ws.Service;
 import org.glassfish.jersey.client.ClientConfig;
 import sys.storage.LocalVolatileStorage;
 
@@ -35,6 +40,7 @@ import sys.storage.LocalVolatileStorage;
 public class IndexerServiceResources implements IndexerServiceAPI {
 
     private final LocalVolatileStorage storage = new LocalVolatileStorage();
+    private String rendezUrl;
 
     @Override
     public List<String> search(String keywords) {
@@ -43,10 +49,10 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
         //Convert to List
         List<String> wordsLst = Arrays.asList(words);
-        
+
         List<Document> documents = storage.search(wordsLst);
         List<String> response = new ArrayList<>();
-        
+
         //Convert to List<String>
         for (Document doc : documents) {
             String url = doc.getUrl();
@@ -69,55 +75,53 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     @Override
     public void remove(String id) {
 
-        try {
-            //Getting rendezVous url
-            MulticastSocket socket = new MulticastSocket();
+        ClientConfig config = new ClientConfig();
+        Client client = ClientBuilder.newClient(config);
 
-            byte[] input = ("rendezvous").getBytes();
-            DatagramPacket packet = new DatagramPacket(input, input.length);
+        WebTarget target = client.target(rendezUrl);
+        Endpoint[] endpoints = target.path("/")
+                .request()
+                .accept(MediaType.APPLICATION_JSON)
+                .get(Endpoint[].class);
 
-            packet.setAddress(InetAddress.getByName("238.69.69.69"));
-            packet.setPort(6969);
+        boolean removed = false;
+        //Removing the asked document from all indexers
+        for (int i = 0; i < endpoints.length; i++) {
 
-            socket.send(packet);
+            Endpoint endpoint = endpoints[i];
+            String url = endpoint.getUrl();
+            Map<String, Object> map = endpoint.getAttributes();
 
-            byte[] buffer = new byte[65536];
-            DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
+            if (map.containsKey("type")) {
 
-            try {
-                socket.receive(url_packet);
-                String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
+                if (map.get("type").equals("soap")) {
 
-                //Creating a client to ask for Endpoints[] on rendezVous
-                ClientConfig config = new ClientConfig();
-                Client client = ClientBuilder.newClient(config);
+                   
+                        if (removeSoap(id, url)) {
+                            removed = true;
+                        }
+                    
 
-                WebTarget target = client.target(rendezVousURL);
-                Endpoint[] endpoints = target.path("/contacts")
-                        .request()
-                        .accept(MediaType.APPLICATION_JSON)
-                        .get(Endpoint[].class);
+                    
 
-                boolean removed = false;
-                //Removing the asked document from all indexers
-                for (int i = 0; i < endpoints.length; i++) {
-                    WebTarget newTarget = client.target(endpoints[i].getUrl());
-                    Response response = newTarget.path("/remove/" + id).request().delete();
-                    System.err.println(endpoints[i].getUrl() + "returned: " + response.getStatus());
-                    if (response.getStatus() == 204) {
+                }
+                if (map.get("type").equals("rest")) {
+                    if (removeRest(id, url)) {
                         removed = true;
                     }
+
                 }
 
-                if (!removed) {
-                    throw new WebApplicationException(NOT_FOUND);
+            } else {
+                if (removeRest(id, url)) {
+                    removed = true;
                 }
-
-            } catch (SocketTimeoutException e) {
 
             }
-        } catch (IOException ex) {
 
+        }
+        if (!removed) {
+            throw new WebApplicationException(CONFLICT);
         }
     }
 
@@ -132,4 +136,38 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         System.out.println(status ? "Document removed." : "Document doesn't exist.");
     }
 
+    void setUrl(String rendezVousURL
+    ) {
+        rendezUrl = rendezVousURL;
+    }
+
+    public boolean removeSoap(String id, String url) {
+        boolean status = false;
+        try {
+            URL wsURL = new URL(url);
+            QName QNAME = new QName(NAMESPACE, NAME);
+            Service service = Service.create(wsURL, QNAME);
+            IndexerAPI indexer = service.getPort(IndexerAPI.class);
+            status = indexer.removeDoc(id);
+        } catch (IndexerAPI.InvalidArgumentException | MalformedURLException ex) {
+            
+        }
+        return status;
+    }
+
+    private boolean removeRest(String id, String url) throws WebApplicationException {
+        try {
+            ClientConfig config = new ClientConfig();
+            Client client = ClientBuilder.newClient(config);
+            WebTarget newTarget = client.target(url);
+            Response response = newTarget.path("/remove/" + id).request().delete();
+
+            if (response.getStatus() == 204) {
+                return true;
+            }
+        } catch (ProcessingException x) {
+            x.printStackTrace();
+        }
+        return false;
+    }
 }

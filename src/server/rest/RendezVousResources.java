@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.ws.rs.WebApplicationException;
 
 import api.rest.RendezVousAPI;
+import java.net.URI;
 
 import static javax.ws.rs.core.Response.Status.*;
 
@@ -16,6 +17,11 @@ import static javax.ws.rs.core.Response.Status.*;
 public class RendezVousResources implements RendezVousAPI {
 
     private Map<String, Endpoint> db = new ConcurrentHashMap<>();
+    private URI rendezVous;
+    
+    public RendezVousResources (URI uri){
+        rendezVous = uri;
+    }
 
     @Override
     public Endpoint[] endpoints() {

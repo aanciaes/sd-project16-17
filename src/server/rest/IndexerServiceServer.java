@@ -62,7 +62,8 @@ public class IndexerServiceServer {
         //Set up server
         URI configURI = UriBuilder.fromUri(String.format("http://%s/", ZERO_IP)).port(PORT).build();
         ResourceConfig config = new ResourceConfig();
-        config.register(new IndexerServiceResources());
+        IndexerServiceResources indexerResources = new IndexerServiceResources();
+        config.register(indexerResources);
         JdkHttpServerFactory.createHttpServer(configURI, config);
 
         System.err.println("REST IndexerService Server ready @ " + endpoint.getUrl());
@@ -84,14 +85,15 @@ public class IndexerServiceServer {
 
                 socket.receive(url_packet);
                 String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
-
+System.err.println(rendezVousURL);
                 int status = registerRendezVous(rendezVousURL);
                 if (status == 204) {
+                    indexerResources.setUrl(rendezVousURL);
                     System.err.println("Service registered succesfully");
                     break;
                 }
                 System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
-                System.exit(0);
+                
             } catch (SocketTimeoutException e) {
                 //No server responded within given time
             } catch (IOException ex) {
@@ -117,11 +119,11 @@ public class IndexerServiceServer {
             Client client = ClientBuilder.newClient(config);
 
             rendezVousAddr = UriBuilder.fromUri(url).build();
-
+            
             WebTarget target = client.target(rendezVousAddr);
 
             try {
-                Response response = target.path("/contacts/" + endpoint.generateId())
+                Response response = target.path("/" + endpoint.generateId())
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();

@@ -16,7 +16,7 @@ import javax.xml.ws.WebFault;
  * @author rmamaral
  */
 @WebService
-public interface IndexerServiceAPI {
+public interface IndexerAPI {
 
     @WebFault
     class InvalidArgumentException extends Exception {
@@ -34,7 +34,7 @@ public interface IndexerServiceAPI {
 
     static final String NAME = "IndexerService";
     static final String NAMESPACE = "http://sd2017";
-    static final String INTERFACE = "api.soap.IndexerServiceAPI";
+    static final String INTERFACE = "api.soap.IndexerAPI";
 
     /* keywords contains a list of works separated by '+'
      * returns the list of urls of the documents stored in this server that contain all the keywords
@@ -56,4 +56,8 @@ public interface IndexerServiceAPI {
      */
     @WebMethod
     boolean remove(String id) throws InvalidArgumentException;
+    
+    @WebMethod
+    boolean removeDoc(String id) throws InvalidArgumentException;
+    
 }

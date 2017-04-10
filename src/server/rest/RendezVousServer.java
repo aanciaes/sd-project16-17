@@ -49,12 +49,14 @@ public class RendezVousServer {
 
         //Setting server up
         String hostIP = InetAddress.getLocalHost().getHostAddress();
-        baseUri = UriBuilder.fromUri(String.format("http://%s/", hostIP)).port(port).build();
+        baseUri = UriBuilder.fromUri(String.format("http://%s/contacts", hostIP)).port(port).build();
 
         URI configAddr = UriBuilder.fromUri(String.format("http://%s/", ZERO_IP)).port(port).build();
 
         ResourceConfig config = new ResourceConfig();
-        config.register(new RendezVousResources());
+        RendezVousResources rendezResource = new RendezVousResources(baseUri);
+       
+        config.register(rendezResource);
         JdkHttpServerFactory.createHttpServer(configAddr, config);
 
         System.err.println("REST RendezVous Server ready @ " + baseUri);
@@ -179,7 +181,8 @@ public class RendezVousServer {
                 WebTarget target = client.target(rendezVousAddr);
 
                 try {
-                    Response response = target.path("/contacts/" + key)
+              
+                    Response response = target.path("/" + key)
                             .request()
                             .delete();
                     if (response.getStatus() == HTTP_SUCCESS_NOCONTENT) {

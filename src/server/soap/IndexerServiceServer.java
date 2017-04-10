@@ -45,9 +45,9 @@ public class IndexerServiceServer {
 
     public static void main(String[] args) throws Exception {
 
-        int port = 9999;
+        int port = 8080;
         if (args.length > 0) {
-            port = Integer.parseInt(args[0]);
+            rendezVousAddr = UriBuilder.fromUri(args[0]).build();
         }
 
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
@@ -55,7 +55,8 @@ public class IndexerServiceServer {
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("type", "soap");
         endpoint = new api.Endpoint(UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress)).port(port).build().toString(),attributes);
-        Endpoint.publish(baseURI, new IndexerServiceServerImpl());
+        IndexerServiceServerImpl indexerServiceImpl = new IndexerServiceServerImpl();
+        Endpoint.publish(baseURI, indexerServiceImpl);
 
         System.err.println("SOAP IndexerService Server ready @ " + baseURI);
 
@@ -90,10 +91,10 @@ public class IndexerServiceServer {
 
                 int status = registerRendezVous(rendezVousURL);
                 if (status == 204) {
+                    indexerServiceImpl.setUrl(rendezVousURL);
                     System.err.println("Service registered succesfully");
                     break;
                 }
-                System.exit(0);
                 System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
 
             } catch (SocketTimeoutException e) {
@@ -142,7 +143,7 @@ public class IndexerServiceServer {
             WebTarget target = client.target(rendezVousAddr);
 
             try {
-                Response response = target.path("/contacts/" + endpoint.generateId())
+                Response response = target.path("/" + endpoint.generateId())
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();
