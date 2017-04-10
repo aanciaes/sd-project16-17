@@ -56,8 +56,12 @@ public interface IndexerAPI {
      */
     @WebMethod
     boolean remove(String id) throws InvalidArgumentException;
-    
+
+    /*
+    * Auxiliar method to delete document only on this server
+    * return true if document was removed, false it not
+    */
     @WebMethod
     boolean removeDoc(String id) throws InvalidArgumentException;
-    
+
 }

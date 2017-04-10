@@ -54,9 +54,7 @@ public class RendezVousServer {
         URI configAddr = UriBuilder.fromUri(String.format("http://%s/", ZERO_IP)).port(port).build();
 
         ResourceConfig config = new ResourceConfig();
-        RendezVousResources rendezResource = new RendezVousResources(baseUri);
-       
-        config.register(rendezResource);
+        config.register(new RendezVousResources());
         JdkHttpServerFactory.createHttpServer(configAddr, config);
 
         System.err.println("REST RendezVous Server ready @ " + baseUri);
@@ -181,7 +179,7 @@ public class RendezVousServer {
                 WebTarget target = client.target(rendezVousAddr);
 
                 try {
-              
+
                     Response response = target.path("/" + key)
                             .request()
                             .delete();

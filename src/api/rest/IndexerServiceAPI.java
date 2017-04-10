@@ -31,7 +31,7 @@ public interface IndexerServiceAPI {
     @DELETE
     @Path("/{id}")
     void remove(@PathParam("id") String id);
-    
+
     @DELETE
     @Path("/remove/{id}")
     void removeDoc(@PathParam("id") String id);

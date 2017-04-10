@@ -61,6 +61,8 @@ public class IndexerServiceServer {
 
         //Set up server
         URI configURI = UriBuilder.fromUri(String.format("http://%s/", ZERO_IP)).port(PORT).build();
+        //Saves config instance so can insert rendezvous address later
+        //Avoids multicast requests on remove document function
         ResourceConfig config = new ResourceConfig();
         IndexerServiceResources indexerResources = new IndexerServiceResources();
         config.register(indexerResources);
@@ -85,10 +87,10 @@ public class IndexerServiceServer {
 
                 socket.receive(url_packet);
                 String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
-System.err.println(rendezVousURL);
+
                 int status = registerRendezVous(rendezVousURL);
                 if (status == 204) {
-                    indexerResources.setUrl(rendezVousURL);
+                    indexerResources.setUrl(rendezVousURL); //Sets rendezvous location on resources
                     System.err.println("Service registered succesfully");
                     break;
                 }
@@ -114,7 +116,6 @@ System.err.println(rendezVousURL);
     private static int registerRendezVous(String url) {
 
         for (int retry = 0; retry < 3; retry++) {
-
             ClientConfig config = new ClientConfig();
             Client client = ClientBuilder.newClient(config);
 
@@ -127,6 +128,9 @@ System.err.println(rendezVousURL);
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();
+//              if (response.getStatus() == 204) {
+//                    return true;
+//              }
             } catch (ProcessingException ex) {
                 //
             }
@@ -134,6 +138,12 @@ System.err.println(rendezVousURL);
         return 0;
     }
 
+    /**
+     * Sends a packet to the muticast address and port defined above
+     * @param socket multicast socket
+     * @param message message to send in packet
+     * @throws IOException 
+     */
     private static void sendMulticastPacket(MulticastSocket socket, String message) throws IOException {
 
         final InetAddress multiAddress = InetAddress.getByName(MULTICAST_ADDRESS);
@@ -161,6 +171,8 @@ System.err.println(rendezVousURL);
 
                 try {
                     MulticastSocket socket = new MulticastSocket();
+                    //heartbeat message identifier + sender endpoint id
+                    //Identifiyng the sender of the message
                     String message = HEARTBEAT_MESSAGE + "/" + endpoint.generateId();
 
                     sendMulticastPacket(socket, message);
