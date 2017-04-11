@@ -36,9 +36,9 @@ public class IndexerServiceServerImpl implements IndexerAPI {
 
     private final LocalVolatileStorage storage = new LocalVolatileStorage(); //Documents "database"
     private String rendezUrl; //RendezVous location
-    
+
     private static final String KEYWORD_SPLIT = "\\+";
-    private static final int SUCCESS_NOCONTENT=204;
+    private static final int SUCCESS_NOCONTENT = 204;
 
     @Override
     public List<String> search(String keywords) throws InvalidArgumentException {
@@ -83,30 +83,30 @@ public class IndexerServiceServerImpl implements IndexerAPI {
         if (id == null) {
             throw new InvalidArgumentException();
         }
-        try {
-            ClientConfig config = new ClientConfig();
-            Client client = ClientBuilder.newClient(config);
 
-            Endpoint[] endpoints = null;
-            for (int retry = 0; retry < 3; retry++) {
-                try {
-                    WebTarget target = client.target(rendezUrl);
-                    endpoints = target.path("/")
-                            .request()
-                            .accept(MediaType.APPLICATION_JSON)
-                            .get(Endpoint[].class);
-                    if (endpoints != null) {
-                        break;
-                    }
-                } catch (ProcessingException ex) {
-                    //retry up to three times
+        ClientConfig config = new ClientConfig();
+        Client client = ClientBuilder.newClient(config);
+
+        Endpoint[] endpoints = null;
+        for (int retry = 0; retry < 3; retry++) {
+            try {
+                WebTarget target = client.target(rendezUrl);
+                endpoints = target.path("/")
+                        .request()
+                        .accept(MediaType.APPLICATION_JSON)
+                        .get(Endpoint[].class);
+                if (endpoints != null) {
+                    break;
                 }
+            } catch (ProcessingException ex) {
+                //retry up to three times
             }
+        }
 
-            boolean removed = false;
-            //Removing the asked document from all indexers
-            for (int i = 0; i < endpoints.length; i++) {
-
+        boolean removed = false;
+        //Removing the asked document from all indexers
+        for (int i = 0; i < endpoints.length; i++) {
+            try {
                 Endpoint endpoint = endpoints[i];
                 String url = endpoint.getUrl();
                 Map<String, Object> map = endpoint.getAttributes();
@@ -128,11 +128,12 @@ public class IndexerServiceServerImpl implements IndexerAPI {
                         removed = true;
                     }
                 }
+            } catch (Exception e) {
+                //Do nothing... continue to remove on other indexers
             }
-            return removed;
-        } catch (Exception e) {
-            return false;
         }
+        return removed;
+
     }
 
     public void setUrl(String rendezVousURL) {
@@ -143,7 +144,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
     public boolean removeDoc(String id) {
         return storage.remove(id);
     }
-
+ 
     public boolean removeSoap(String id, String url) {
 
         try {
@@ -165,8 +166,8 @@ public class IndexerServiceServerImpl implements IndexerAPI {
                 WebTarget target = client.target(url);
                 Response response = target.path("/remove/" + id).request().delete();
 
-                return response.getStatus()==SUCCESS_NOCONTENT;
-                
+                return response.getStatus() == SUCCESS_NOCONTENT;
+
             } catch (ProcessingException x) {
                 //retry method up to three times
             }
