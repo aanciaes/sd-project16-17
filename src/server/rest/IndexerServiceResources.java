@@ -160,10 +160,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
                 WebTarget newTarget = client.target(url);
                 Response response = newTarget.path("/remove/" + id).request().delete();
 
-                //return response.getStatus();
-                if (response.getStatus() == 204) {
-                    return true;
-                }
+                return response.getStatus()==204;
             } catch (ProcessingException x) {
                 //retry method up to three times
             }

@@ -128,9 +128,7 @@ public class IndexerServiceServer {
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();
-//              if (response.getStatus() == 204) {
-//                    return true;
-//              }
+                
             } catch (ProcessingException ex) {
                 //
             }

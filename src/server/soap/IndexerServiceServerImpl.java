@@ -36,12 +36,18 @@ public class IndexerServiceServerImpl implements IndexerAPI {
 
     private final LocalVolatileStorage storage = new LocalVolatileStorage(); //Documents "database"
     private String rendezUrl; //RendezVous location
+    
+    private static final String KEYWORD_SPLIT = "//+";
+    private static final int SUCCESS_NOCONTENT=204;
 
     @Override
     public List<String> search(String keywords) throws InvalidArgumentException {
+        if (keywords == null) {
+            throw new InvalidArgumentException();
+        }
         try {
             //Split query words
-            String[] split = keywords.split("\\+");
+            String[] split = keywords.split(KEYWORD_SPLIT);
 
             //Convert to list
             List<String> query = Arrays.asList(split);
@@ -52,28 +58,32 @@ public class IndexerServiceServerImpl implements IndexerAPI {
                 String url = documents.get(i).getUrl();
                 response.add(i, url);
             }
-
             return response;
         } catch (Exception e) {
-            throw new InvalidArgumentException();
+            return new ArrayList<>(); // On error, return empty list
         }
     }
 
     @Override
     public boolean add(Document doc) throws InvalidArgumentException {
+        if (doc == null) {
+            throw new InvalidArgumentException();
+        }
         try {
             boolean status = storage.store(doc.id(), doc);
             System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
             return status;
         } catch (Exception e) {
-            throw new InvalidArgumentException();
+            return false;
         }
     }
 
     @Override
     public boolean remove(String id) throws InvalidArgumentException {
+        if (id == null) {
+            throw new InvalidArgumentException();
+        }
         try {
-
             ClientConfig config = new ClientConfig();
             Client client = ClientBuilder.newClient(config);
 
@@ -121,8 +131,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
             }
             return removed;
         } catch (Exception e) {
-            throw new InvalidArgumentException();
-
+            return false;
         }
     }
 
@@ -148,7 +157,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
         }
     }
 
-    private boolean removeRest(String id, String url) throws WebApplicationException {
+    private boolean removeRest(String id, String url) {
         for (int retry = 0; retry < 3; retry++) {
             try {
                 ClientConfig config = new ClientConfig();
@@ -156,10 +165,8 @@ public class IndexerServiceServerImpl implements IndexerAPI {
                 WebTarget target = client.target(url);
                 Response response = target.path("/remove/" + id).request().delete();
 
-                //return response.getStatus();
-                if (response.getStatus() == 204) {
-                    return true;
-                }
+                return response.getStatus()==SUCCESS_NOCONTENT;
+                
             } catch (ProcessingException x) {
                 //retry method up to three times
             }
