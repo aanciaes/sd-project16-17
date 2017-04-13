@@ -1,7 +1,6 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
  */
 package server.rest;
 
@@ -23,6 +22,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 import org.glassfish.jersey.client.ClientConfig;
+import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 
@@ -39,6 +39,10 @@ public class IndexerServiceServer {
 
     private static final String HEARTBEAT_MESSAGE = "IAmAlive";
     private static final int SOCKET_TIMEOUT = 1000;
+
+    //Time before server raises exception
+    private static final int CONNECT_TIMEOUT = 1000;
+    private static final int READ_TIMEOUT = 1000;
 
     //this.endpoint
     private static Endpoint endpoint;
@@ -64,6 +68,12 @@ public class IndexerServiceServer {
         //Saves config instance so can insert rendezvous address later
         //Avoids multicast requests on remove document function
         ResourceConfig config = new ResourceConfig();
+
+        //Set timeouts
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.property(ClientProperties.CONNECT_TIMEOUT, CONNECT_TIMEOUT);
+        clientConfig.property(ClientProperties.READ_TIMEOUT, READ_TIMEOUT);
+
         IndexerServiceResources indexerResources = new IndexerServiceResources();
         config.register(indexerResources);
         JdkHttpServerFactory.createHttpServer(configURI, config);
@@ -95,7 +105,7 @@ public class IndexerServiceServer {
                     break;
                 }
                 System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
-                
+
             } catch (SocketTimeoutException e) {
                 //No server responded within given time
             } catch (IOException ex) {
@@ -120,7 +130,7 @@ public class IndexerServiceServer {
             Client client = ClientBuilder.newClient(config);
 
             rendezVousAddr = UriBuilder.fromUri(url).build();
-            
+
             WebTarget target = client.target(rendezVousAddr);
 
             try {
@@ -128,7 +138,7 @@ public class IndexerServiceServer {
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();
-                
+
             } catch (ProcessingException ex) {
                 //
             }
@@ -138,9 +148,10 @@ public class IndexerServiceServer {
 
     /**
      * Sends a packet to the muticast address and port defined above
+     *
      * @param socket multicast socket
      * @param message message to send in packet
-     * @throws IOException 
+     * @throws IOException
      */
     private static void sendMulticastPacket(MulticastSocket socket, String message) throws IOException {
 

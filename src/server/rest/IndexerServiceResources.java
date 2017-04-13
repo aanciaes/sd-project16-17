@@ -1,7 +1,6 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
  */
 package server.rest;
 
@@ -76,7 +75,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         //Getting all indexers registered in rendezvous
         ClientConfig config = new ClientConfig();
         Client client = ClientBuilder.newClient(config);
-        
+
         Endpoint[] endpoints = null;
         for (int retry = 0; retry < 3; retry++) {
             try {
@@ -160,7 +159,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
                 WebTarget newTarget = client.target(url);
                 Response response = newTarget.path("/remove/" + id).request().delete();
 
-                return response.getStatus()==204;
+                return response.getStatus() == 204;
             } catch (ProcessingException x) {
                 //retry method up to three times
             }

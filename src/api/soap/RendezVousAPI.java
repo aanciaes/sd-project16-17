@@ -1,21 +1,30 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
  */
 package api.soap;
 
-/**
- *
- * @author rmamaral
- */
+import api.Endpoint;
 import javax.jws.WebMethod;
 import javax.jws.WebService;
-
-import api.Endpoint;
+import javax.xml.ws.WebFault;
 
 @WebService
 public interface RendezVousAPI {
+
+    @WebFault
+    class InvalidArgumentException extends Exception {
+
+        private static final long serialVersionUID = 1L;
+
+        public InvalidArgumentException() {
+            super("");
+        }
+
+        public InvalidArgumentException(String msg) {
+            super(msg);
+        }
+    }
 
     final String NAME = "RendezVousService";
     final String NAMESPACE = "http://sd2017";
@@ -31,11 +40,15 @@ public interface RendezVousAPI {
      * Regista novo servidor de indexacao.
      */
     @WebMethod
-    void register(String id, Endpoint endpoint);
+    boolean register(String id, Endpoint endpoint);
+
+    @WebMethod
+    boolean update(String id, Endpoint endpoint);
 
     /**
      * De-regista servidor de indexacao, dado o seu id.
      */
     @WebMethod
-    void unregister(String id);
+    boolean unregister(String id);
+
 }

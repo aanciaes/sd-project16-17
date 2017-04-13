@@ -1,3 +1,7 @@
+/*
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
+ */
 package server.rest;
 
 import api.Endpoint;

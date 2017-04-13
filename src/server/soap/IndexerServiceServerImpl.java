@@ -1,7 +1,6 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
  */
 package server.soap;
 
@@ -16,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import javax.jws.WebService;
 import javax.ws.rs.ProcessingException;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
@@ -144,7 +142,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
     public boolean removeDoc(String id) {
         return storage.remove(id);
     }
- 
+
     public boolean removeSoap(String id, String url) {
 
         try {

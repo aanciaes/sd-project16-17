@@ -1,7 +1,6 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
  */
 package server.soap;
 
@@ -37,7 +36,11 @@ public class IndexerServiceServer {
     private static final String MESSAGE = "rendezvous";
     private static final String HEARTBEATMESSAGE = "IAmAlive";
 
+    //Time before server raises exception
+    private static final String SOAP_CONN_TIMEOUT = "1000";
+    private static final String SOAP_RECV_TIMEOUT = "1000";
     private static final int TIMEOUT = 1000;
+
     //this.endpoint
     private static api.Endpoint endpoint;
     //rendezvous location
@@ -60,6 +63,10 @@ public class IndexerServiceServer {
 
         //Set up Server
         String configURI = String.format("http://%s:%d/indexer", ZERO_IP, port);
+
+        //set timeouts
+        System.setProperty("javax.xml.ws.client.connectionTimeout", SOAP_CONN_TIMEOUT);
+        System.setProperty("javax.xml.ws.client.receiveTimeout", SOAP_RECV_TIMEOUT);
         //Saves config instance so can insert rendezvous address later
         //Avoids multicast requests on remove document function
         IndexerServiceServerImpl indexerServiceImpl = new IndexerServiceServerImpl();

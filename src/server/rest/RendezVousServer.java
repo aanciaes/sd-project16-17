@@ -1,3 +1,7 @@
+/*
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
+ */
 package server.rest;
 
 import java.io.IOException;
@@ -7,14 +11,10 @@ import java.net.MulticastSocket;
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.ws.rs.ProcessingException;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.Response;
 
 import javax.ws.rs.core.UriBuilder;
 import org.glassfish.jersey.client.ClientConfig;
+import org.glassfish.jersey.client.ClientProperties;
 
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
@@ -31,13 +31,17 @@ public class RendezVousServer {
     private static final String MULTICAST_MESSAGE = "rendezvous";
     private static final String KEEPALIVE_MESSAGE = "IAmAlive";
 
-    private static final int HTTP_SUCCESS_NOCONTENT = 204;
+    //Time before server raises exception
+    private static final int CONNECT_TIMEOUT = 1000;
+    private static final int READ_TIMEOUT = 1000;
 
     //base url of this server - contains "http", ip address, port and base path
     private static URI baseUri;
 
     //Failure detection map
     private static Map<String, Long> servers;
+
+    private static RendezVousResources resources;
 
     public static void main(String[] args) throws Exception {
         servers = new ConcurrentHashMap<>();
@@ -54,7 +58,15 @@ public class RendezVousServer {
         URI configAddr = UriBuilder.fromUri(String.format("http://%s/", ZERO_IP)).port(port).build();
 
         ResourceConfig config = new ResourceConfig();
-        config.register(new RendezVousResources());
+
+        //Set timeouts
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.property(ClientProperties.CONNECT_TIMEOUT, CONNECT_TIMEOUT);
+        clientConfig.property(ClientProperties.READ_TIMEOUT, READ_TIMEOUT);
+
+        //Saving instance so no client is needed when calling itself on remove indexer function
+        resources = new RendezVousResources();
+        config.register(resources);
         JdkHttpServerFactory.createHttpServer(configAddr, config);
 
         System.err.println("REST RendezVous Server ready @ " + baseUri);
@@ -169,28 +181,25 @@ public class RendezVousServer {
         private static void deleteServer(String key) {
             servers.remove(key);
 
-            for (int retry = 0; retry < 3; retry++) {
+            resources.unregister(key);
 
-                ClientConfig config = new ClientConfig();
-                Client client = ClientBuilder.newClient(config);
-
-                URI rendezVousAddr = UriBuilder.fromUri(baseUri).build();
-
-                WebTarget target = client.target(rendezVousAddr);
-
-                try {
-
-                    Response response = target.path("/" + key)
-                            .request()
-                            .delete();
-                    if (response.getStatus() == HTTP_SUCCESS_NOCONTENT) {
-                        break;
-                    }
-
-                } catch (ProcessingException ex) {
-                    //retry
-                }
-            }
+            /**
+             * for (int retry = 0; retry < 3; retry++) {
+             *
+             * ClientConfig config = new ClientConfig(); Client client =
+             * ClientBuilder.newClient(config);
+             *
+             * URI rendezVousAddr = UriBuilder.fromUri(baseUri).build();
+             *
+             * WebTarget target = client.target(rendezVousAddr);
+             *
+             * try {
+             *
+             * Response response = target.path("/" + key) .request() .delete();
+             * if (response.getStatus() == HTTP_SUCCESS_NOCONTENT) { break; }
+             *
+             * } catch (ProcessingException ex) { //retry } }
+             */
         }
     }
 }

@@ -1,7 +1,6 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
  */
 package api.soap;
 
@@ -11,10 +10,6 @@ import javax.jws.WebMethod;
 import javax.jws.WebService;
 import javax.xml.ws.WebFault;
 
-/**
- *
- * @author rmamaral
- */
 @WebService
 public interface IndexerAPI {
 
@@ -60,7 +55,7 @@ public interface IndexerAPI {
     /*
     * Auxiliar method to delete document only on this server
     * return true if document was removed, false it not
-    */
+     */
     @WebMethod
     boolean removeDoc(String id) throws InvalidArgumentException;
 
